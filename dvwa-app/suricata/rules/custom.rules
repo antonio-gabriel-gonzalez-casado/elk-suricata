@@ -1,0 +1,28 @@
+#alert http any any -> any any (msg:"Generic HTTP traffic detected"; sid:999999; rev:1;)
+
+alert http any any -> any any (msg:"Access to /login.php"; content:"/login.php"; http_uri; sid:999998; rev:1;)
+
+# Detecta intentos de inyección SQL que contienen la palabra "UNION" en la URI HTTP.
+alert http any any -> any any (msg:"Possible SQL Injection attack (Contains UNION in URI)"; content:"union"; nocase; http_raw_uri; classtype:web-application-attack; sid:999997; rev:2;)
+
+# Detecta intentos de inyección SQL que contienen la palabra "UNION" en los datos POST HTTP.
+alert http any any -> any any (msg:"Possible SQL Injection attack (Contains UNION in POST data)"; flow:to_server,established; content:"POST"; http_method; content:"union"; nocase; http_client_body; classtype:web-application-attack; sid:999996; rev:3;)
+
+# Detecta intentos de fuerza bruta en la página de DVWA.
+alert http any any -> any any (msg:"Brute Force Attempt Detected"; flow:established,to_server; content:"POST"; http_method; content:"/vulnerabilities/brute/"; classtype:web-application-attack; threshold:type both, track by_src, count 10, seconds 30; sid:999995; rev:1;)
+
+# Detecta intentos de Cross-Site Scripting (XSS) mediante el uso de etiquetas <script> en la URI de las solicitudes HTTP.
+alert http any any -> any any (msg:"XSS Attempt Detected - Script Tag in URI"; uricontent:"<script>"; nocase; classtype:web-application-attack; sid:999994; rev:3;)
+
+# Detecta intentos de Cross-Site Scripting (XSS) mediante el uso de manipuladores de eventos como "onerror=" en la URI de las solicitudes HTTP.
+alert http any any -> any any (msg:"XSS Attempt Detected - Event Handler"; content:"onerror="; nocase; http_uri; classtype:web-application-attack; sid:999993; rev:1;)
+
+# Detecta intentos de traversal de directorios mediante el uso de la secuencia "../" en la URI de las solicitudes HTTP.
+alert http any any -> any any (msg:"Directory Traversal Attempt Detected"; content:"../"; http_uri; classtype:web-application-attack; sid:999991; rev:1;)
+
+# Detecta intentos de inclusión local de archivos (Local File Inclusion, LFI) buscando la ruta "/etc/passwd" en la URI de las solicitudes HTTP.
+alert http any any -> any any (msg:"Local File Inclusion Detected"; content:"/etc/passwd"; http_uri; classtype:web-application-attack; sid:999990; rev:1;)
+
+# Detecta posibles intentos de comandos de reverse shell en el cuerpo de las solicitudes HTTP.
+alert http any any -> any any (msg:"Possible Reverse Shell Command"; content:"bash -i >& /dev/tcp/"; http_client_body; nocase; classtype:web-application-attack; sid:999989; rev:1;)
+
