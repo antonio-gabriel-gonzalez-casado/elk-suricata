@@ -1,5 +1,6 @@
 # Definimos los servicios necesarios para la configuración del stack de Elastic.
 services:
+
   setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     volumes:
@@ -290,39 +291,33 @@ services:
         # Monta todo el sistema de archivos del host en modo de solo lectura. Esto permite al agente acceder a 
         # configuraciones del sistema, logs y otros datos necesarios para monitorear el host y los contenedores.
     networks:
-      - elastic_network # Red compartida por los servicios del stack.
+      - dvwa_network
+      - elastic_network
 
-  suricata:
-    build:
-      context: ./suricata  # Ruta donde se encuentra el Dockerfile y cualquier archivo adicional (scripts, configuraciones, reglas, etc.).
-    container_name: suricata  # Nombre del contenedor asignado como "suricata" para facilitar la identificación.
-    restart: always  # Reinicia el contenedor automáticamente si se detiene por cualquier motivo.
-    network_mode: "host"  # Conecta el contenedor directamente a la red del host, lo que permite a Suricata monitorear todas las interfaces y el tráfico.
+  # https://github.com/digininja/DVWA/blob/master/compose.yml
+  dvwa:
+    build: ./DVWA
+    # Change `always` to `build` to build from local source
+    pull_policy: always
+    environment:
+      - DB_SERVER=db
+      - DEFAULT_SECURITY_LEVEL=low
+      - SURICATA_UPDATE_ENABLED=true  # Variable de entorno personalizada para habilitar la actualización de reglas de Suricata en tiempo de ejecución.
+    depends_on:
+      - db
+    restart: unless-stopped
+    user: root # Ejecutar como usuario root.
+    ports:
+      - 4280:80
+    networks:
+      - dvwa_network
     cap_add:  # Agrega capacidades especiales al contenedor para poder capturar tráfico de red y funcionar correctamente.
       - NET_ADMIN   # Permite realizar operaciones de administración de red (requerido para captura de paquetes).
       - NET_RAW     # Permite acceder al tráfico de red bruto.
       - SYS_NICE    # Permite ajustar las prioridades de los hilos para optimizar el rendimiento de Suricata.
     volumes:
       - suricata-logs:/var/log/suricata  # Monta un volumen persistente donde se almacenarán los logs de Suricata (por ejemplo, eve.json).
-    environment:
-      - SURICATA_UPDATE_ENABLED=true  # Variable de entorno personalizada para habilitar la actualización de reglas de Suricata en tiempo de ejecución.
-
-  # https://github.com/digininja/DVWA/blob/master/compose.yml
-  dvwa:
-    build: ./DVWA
-    image: ghcr.io/digininja/dvwa:latest
-    # Change `always` to `build` to build from local source
-    pull_policy: always
-    environment:
-      - DB_SERVER=db
-      - DEFAULT_SECURITY_LEVEL=low
-    depends_on:
-      - db
-    networks:
-      - elastic_network # Red compartida por los servicios del stack.
-    ports:
-      - 4280:80
-    restart: unless-stopped
+      - suricata-run:/var/run/suricata/
 
   db:
     image: docker.io/library/mariadb:10
@@ -333,9 +328,9 @@ services:
       - MYSQL_PASSWORD=p@ssw0rd
     volumes:
       - dvwa:/var/lib/mysql
-    networks:
-      - elastic_network # Red compartida por los servicios del stack.
     restart: unless-stopped
+    networks:
+      - dvwa_network
 
 
 volumes:
@@ -350,6 +345,8 @@ volumes:
   dvwa-agent-data:
     driver: local
   suricata-logs:
+    driver: local
+  suricata-run:
     driver: local 
   dvwa:
     driver: local
@@ -360,3 +357,11 @@ volumes:
 networks:
   elastic_network:
     driver: bridge
+  dvwa_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24  # Subred fija para esta red
+          gateway: 192.168.100.1
+    driver_opts:
+      com.docker.network.bridge.name: custom_docker0  # Nombre fijo para la interfaz en el host

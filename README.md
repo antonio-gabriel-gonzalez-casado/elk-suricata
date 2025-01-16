@@ -21,15 +21,11 @@ SIEM Elastic Logstash y Kibana (ELK) integrado con el IDS SURICATA para el talle
 6. [Integraciones con Docker y Suricata](#integraciones-con-docker-y-suricata)
 7. [Configuración de SURICATA](#configuración-de-suricata)
 8. [Casos de Prueba con DVWA](#casos-de-prueba-con-dvwa)
-   - [CP01 Tráfico Sospechoso](#cp01-tráfico-sospechoso)
-   - [CP02 SQL Injection '](#cp02-sql-injection-)
-   - [CP03 SQL Injection UNION](#cp03-sql-injection-union)
-   - [CP04 SQL Injection SELECT](#cp04-sql-injection-select)
-   - [CP05 Reflected Cross Site Scripting (XSS)](#cp05-reflected-cross-site-scripting-xss)
-   - [CP06 File Inclusion](#cp06-file-inclusion)
-   - [CP07 Fuerza Bruta](#cp07-fuerza-bruta)
-   - [CP08 Reverse Shell](#cp08-reverse-shell)
-9. [BONUS: Casos de Prueba con tmNIDS](#bonus-casos-de-prueba-con-tmnids)
+   - [CP01 SQL Injection UNION](#cp01-sql-injection-union)
+   - [CP02 Reflected Cross Site Scripting (XSS)](#cp02-reflected-cross-site-scripting-xss)
+   - [CP03 File Inclusion](#cp03-file-inclusion)
+   - [CP04 Fuerza Bruta](#cp04-fuerza-bruta)
+   - [CP05 Reverse Shell](#cp05-reverse-shell)
 
 ## Introducción
 
@@ -272,7 +268,7 @@ La única comprobación que debemos hacer es la siguiente.
 Obtenemos la interfaz de red que tienen los contenedores. Esto se hace entrando lanzando el siguiente comando para listar las interfaces web asociadas al contenedor suricata:
 
    ```bash
-   docker exec suricata ip -o link show
+   docker exec elk-suricata-dvwa-1 ip -o link show
    ```
 Normalmente la interfaz de red suele ser la que está detrás de la ```lo:``` (que es la interna) pero en este caso se muestra un listado y la más típica suelen ser ```eth0:```
 
@@ -280,14 +276,14 @@ Normalmente la interfaz de red suele ser la que está detrás de la ```lo:``` (q
 
 La configuración actual está preparada para trabajar con ```eth0:``` pero si en tu caso fuera otra la interfaz de red tendrías que reemplazar ```eth0``` por la ```tuya``` en los ficheros:
 
-* [suricata/config/suricata.yaml](suricata/config/suricata.yaml)
-* [suricata/entrypoint.sh](suricata/entrypoint.sh)
+* [DVWA/suricata/config/suricata.yaml](DVWA/suricata/config/suricata.yaml)
+* [DVWA/suricata/entrypoint.sh](DVWA/suricata/entrypoint.sh)
 
 ### Reglas en SURICATA
 
 En el fichero:
 
-* [suricata/rules/custom.rules](suricata/rules/custom.rules)
+* [DVWA/suricata/rules/custom.rules](DVWA/suricata/rules/custom.rules)
 
 Están reglas personalizadas de detección para ataques comunes a aplicaciones web, organizadas en categorías como inyección SQL, inyección de comandos, intentos de fuerza bruta, acceso a archivos sensibles, traversal de directorios, intentos de reverse shell y ataques Cross-Site Scripting (XSS). Estas reglas analizan principalmente el contenido de solicitudes HTTP, incluidas las URI y los datos del cuerpo, para identificar patrones específicos asociados con actividades maliciosas, como palabras clave (SELECT, UNION, ../), uso de comandos peligrosos (cat /etc/passwd, bash -i >& /dev/tcp/), o comportamientos sospechosos (envío masivo de paquetes o detección de scripts maliciosos en etiquetas HTML). Las reglas también incluyen configuraciones avanzadas, como umbrales de tráfico, para detectar ataques como DDoS o fuerza bruta.
 
@@ -314,64 +310,27 @@ Utilizaremos DVWA (Damn Vulnerable Web Application) que es una aplicación web i
 
 La url de acceso a la aplicación DVWA es http://localhost:4280 con el usuario ```admin``` y la contraseña ```password```
 
-### CP01 Tráfico Sospechoso
-
-En cualquier contenedor del cluster generar tráfico sospechoso mediante: curl http://testmynids.org/uid/index.html
-
-```bash
-docker exec elk-suricata-dvwa-1 curl http://testmynids.org/uid/index.html
-```
-
-Después de ejecutar el comando vamos al Dashboard de alertas de Suricata y pulsamos el botón Refresh para ver si la alerta es detectada.
-
-![Resultado CP01](images/tests/cp01.png)
-
-### CP02 SQL Injection '
-
-Detecta inyecciones SQL que usan comillas simples ' en la URI:
-
-[http://localhost4280/vulnerabilities/sqli/?id=1'&Submit=Submit](http://localhost4280/vulnerabilities/sqli/?id=1'&Submit=Submit)
-
-Después de acceder a la url anterior:
-![Resultado CP02](images/tests/cp02.png)
-
-### CP03 SQL Injection UNION
+### CP01 SQL Injection UNION
 
 Detecta inyecciones SQL que usan la palabra clave UNION.
 
-En la aplicación DVWA http://localhost:4280/vulnerabilities/sqli
-
-![SQL Injection UNION](images/tests/cp03-test.png)
+Lanzamos el siguiente enlace: http://localhost:4280/vulnerabilities/sqli/?id=UNION&Submit=Submit#
 
 Resultado en KIBANA
 
-![RESULTADO SQL Injection UNION](images/tests/cp03-result.png)
+![RESULTADO SQL Injection UNION](images/tests/cp01-result.png)
 
-### CP04 SQL Injection SELECT
-
-Detecta inyecciones SQL que usan la palabra clave SELECT
-
-En la aplicación DVWA http://localhost:4280/vulnerabilities/sqli
-
-![SQL Injection SELECT](images/tests/cp04-test.png)
-
-Resultado en KIBANA
-
-![RESULTADO SQL Injection SELECT](images/tests/cp04-result.png)
-
-### CP05 Reflected Cross Site Scripting (XSS)
+### CP02 Reflected Cross Site Scripting (XSS)
 
 Detecta intentos de inyección XSS con la etiqueta ```<script>```. Ejemplo: ```<script>alert(1)</script>```
 
-En la aplicación DVWA http://localhost:4280/vulnerabilities/xss_r/
-
-![Cross Site Scripting](images/tests/cp05-test.png)
+Lanzamos la siguiente url: http://localhost:4280/vulnerabilities/xss_r/?name=%3Cscript%3Ealert%281%29%3C%2Fscript%3E#
 
 Resultado en KIBANA
 
-![Cross Site Scripting Result](images/tests/cp05-result.png)
+![Cross Site Scripting Result](images/tests/cp02-result.png)
 
-### CP06 File Inclusion
+### CP03 File Inclusion
 
 Detecta intentos de acceso a directorios no autorizados. Ejemplo: page=../../etc/passwd
 
@@ -379,9 +338,9 @@ Lanzamos la siguiente url: http://localhost:4280/vulnerabilities/fi/?page=../../
 
 Resultado en KIBANA
 
-![File Inclusion Resultado](images/tests/cp06-result.png)
+![File Inclusion Resultado](images/tests/cp03-result.png)
 
-### CP07 Fuerza Bruta
+### CP04 Fuerza Bruta
 
 Si se hace intento de login más de 10 veces en 10 segundos. 
 
@@ -396,7 +355,7 @@ sh scripts/simulate_brute_force.sh
 ```
 
 Resultado en KIBANA:
-![Fuerza bruta Resultado](images/tests/cp07-result.png)
+![Fuerza bruta Resultado](images/tests/cp04-result.png)
 
 ### CP08 Reverse Shell
 
@@ -411,25 +370,4 @@ sh scripts/test_shell_reverse.sh
 ```
 
 Resultado en KIBANA:
-![alt text](images/tests/cp08-result.png)
-
----
-
-## BONUS: Casos de Prueba con tmNIDS
-
-Podemos utilizar tmNIDS (Test My Network Intrusion Detection System) que es una herramienta diseñada para verificar la funcionalidad de sistemas de detección de intrusos basados en red (Network Intrusion Detection Systems, NIDS). Genera patrones de tráfico que coincidan con reglas de detección conocidas, evaluando si el NIDS está configurado correctamente.
-
-Acceder al uno de nuestros contenedores, por ejemplo a elk-suricata-dvwa-1 
-
-```bash
-docker exec -it elk-suricata-dvwa-1 /bin/bash
-```
-
-Lanzar el comando:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/3CORESec/testmynids.org/master/tmNIDS -o /tmp/tmNIDS && chmod +x /tmp/tmNIDS && /tmp/tmNIDS
-```
-
-Probar todas las opciones del menú de esta utilidad:
-![tmNIDS](images/tmNIDS.png)
+![alt text](images/tests/cp05-result.png)
