@@ -357,7 +357,7 @@ sh scripts/simulate_brute_force.sh
 Resultado en KIBANA:
 ![Fuerza bruta Resultado](images/tests/cp04-result.png)
 
-### CP08 Reverse Shell
+### CP05 Reverse Shell
 
 Un reverse shell es una técnica para obtener acceso remoto a un sistema objetivo. Es una conexión de shell inversa donde el sistema comprometido inicia la conexión hacia el atacante, en lugar de que el atacante se conecte directamente al sistema objetivo.
 
